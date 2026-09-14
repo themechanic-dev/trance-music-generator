@@ -183,13 +183,35 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
     ),
     (
         "Where the files live",
-        "The whole installation is inside the project folder - delete the folder and nothing is left behind.",
+        "The whole installation is inside the project folder - delete the folder and nothing is left behind "
+        "(except the launcher and icon if you installed them with --desktop; see below).",
         [
+            ("data/settings.json, data/tmg.sqlite", "Every setting; phrases, library, profile, productions and jobs."),
             ("data/phrases", "The phrase bank (WAV, 48 kHz stereo) plus the .raw.wav originals."),
+            ("data/library", "Stems of the analysed tracks."),
+            ("data/output", "The tracks and videos you make, with their .timeline.json and .plan.json."),
+            ("data/neural, data/test", "Cached neural clips; self-test clips."),
             ("data/trash", "Deleted phrases."),
             ("data/logs", "The application log."),
-            ("models", "Downloaded AI models (Demucs, MusicGen, ...)."),
-            ("tools, .venv", "ffmpeg, the Python environment and every library."),
+            ("models", "Downloaded AI models (Demucs, MusicGen, Stable Audio, SD-Turbo) and the HuggingFace token."),
+            ("tools, .venv", "uv, Python 3.12, ffmpeg, the worker Python environment and every library."),
+        ],
+    ),
+    (
+        "Installing on another machine",
+        "Linux with GNOME (Ubuntu 25.04+, Debian 13, Fedora 41+), PipeWire and an NVIDIA GPU with driver 580 or newer. "
+        "The full guide with every step and the troubleshooting table is docs/INSTALL.md in the project folder.",
+        [
+            ("1. System packages", "The only ones: sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 pipewire-bin git curl"),
+            ("2. Get the code", "git clone the repository (or copy the folder) and cd into it."),
+            ("3. Install", "./install.sh --desktop  - downloads uv, Python 3.12, PyTorch with CUDA, the libraries and ffmpeg with NVENC into "
+                           "the folder (about 6 GB), runs a self-check, and adds the launcher and icon to the applications menu. Re-running it is safe."),
+            ("4. Start", "./trance-music-generator or the applications menu. Then Settings > Environment > 'Run environment check' once."),
+            ("5. Models", "They download into models/ the first time each feature is used: Demucs 80 MB, MusicGen stereo-small 1.2 GB, "
+                          "SD-Turbo 2.5 GB; MusicGen medium 7.5 GB, melody 6 GB and Stable Audio Open 9.5 GB only if you pick them."),
+            ("Updating", "git pull, ./install.sh, restart the app. Settings, data and models stay."),
+            ("Uninstalling", "Delete the folder. If you used --desktop, also delete ~/.local/share/applications/org.tmg.TranceMusicGenerator.desktop "
+                             "and ~/.local/share/icons/hicolor/*/apps/org.tmg.TranceMusicGenerator.*"),
         ],
     ),
 ]

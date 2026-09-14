@@ -44,13 +44,21 @@ this folder.
 
 ## Install and run
 
+Ubuntu 25.04+ / Debian 13 / Fedora 41+ with GNOME, PipeWire and an NVIDIA driver 580 or newer. The only
+system packages are the GTK 4 / libadwaita bindings for Python and PipeWire's tools:
+
 ```bash
-./install.sh            # everything into this folder; add --desktop for an applications-menu launcher
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 pipewire-bin git curl
+git clone https://github.com/themechanic-dev/trance-music-generator.git
+cd trance-music-generator
+./install.sh --desktop   # everything into this folder (uv, Python 3.12, PyTorch + CUDA, ffmpeg with NVENC) + launcher and icon
 ./trance-music-generator
 ```
 
-Models download into `models/` the first time each feature is used. The in-app **Help** tab explains
-every screen; the numbers behind the design are in [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
+Models download into `models/` the first time each feature is used. The full guide - requirements, what the
+installer does, Stable Audio Open, where things live, updating, uninstalling, troubleshooting - is
+[docs/INSTALL.md](docs/INSTALL.md). The in-app **Help** tab explains every screen; the numbers behind the
+design are in [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
 
 ## How it is built
 

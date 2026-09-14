@@ -56,6 +56,11 @@ class TmgApplication(Adw.Application):
         self.jobs = JobQueue(self.db, on_event=self._on_job_event_from_thread)
         self.jobs.start()
 
+        # the app icon: found by name once install.sh --desktop has copied it to ~/.local/share/icons, and
+        # straight from the project folder before that (GTK treats files in a search path as unthemed icons)
+        Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(paths.ROOT / "assets" / "icons"))
+        Gtk.Window.set_default_icon_name(APP_ID)
+
         provider = Gtk.CssProvider()
         provider.load_from_string(CSS)
         Gtk.StyleContext.add_provider_for_display(
@@ -111,7 +116,7 @@ class TmgApplication(Adw.Application):
         dialog = Adw.AboutDialog(
             application_name=APP_NAME,
             version=__version__,
-            application_icon="audio-x-generic",
+            application_icon=APP_ID,
             comments="Learns trance from your own library, composes new tracks, grabs phrases from the "
                      "system audio and renders MP3 or MP4 with GPU visuals. Everything runs locally.",
         )

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trance Music Generator - application icon (name = application id, so GNOME matches it to the window) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#241245"/>
+      <stop offset="1" stop-color="#6d1b6a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.55" r="0.62">
+      <stop offset="0" stop-color="#ff5fa8" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ff5fa8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="0.5" stop-color="#ff5e7e"/>
+      <stop offset="1" stop-color="#c04bff"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#glow)"/>
+  <!-- spectrum bars, quiet, behind the wave -->
+  <g fill="#ffffff" opacity="0.16">
+    <rect x="88" y="332" width="28" height="70" rx="9"/>
+    <rect x="136" y="302" width="28" height="100" rx="9"/>
+    <rect x="184" y="342" width="28" height="60" rx="9"/>
+    <rect x="232" y="272" width="28" height="130" rx="9"/>
+    <rect x="280" y="312" width="28" height="90" rx="9"/>
+    <rect x="328" y="252" width="28" height="150" rx="9"/>
+    <rect x="376" y="322" width="28" height="80" rx="9"/>
+  </g>
+  <!-- the waveform: glow underneath, crisp stroke on top -->
+  <path d="M72 256 C104 256 118 150 150 150 C182 150 194 362 226 362 C258 362 270 150 302 150 C334 150 346 362 378 362 C410 362 424 256 440 256"
+        fill="none" stroke="url(#wave)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" opacity="0.65" filter="url(#blur)"/>
+  <path d="M72 256 C104 256 118 150 150 150 C182 150 194 362 226 362 C258 362 270 150 302 150 C334 150 346 362 378 362 C410 362 424 256 440 256"
+        fill="none" stroke="url(#wave)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- kick: a small ring on the beat -->
+  <circle cx="440" cy="92" r="22" fill="none" stroke="#ffd27a" stroke-width="8" opacity="0.9"/>
+  <circle cx="440" cy="92" r="7" fill="#ffd27a"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#shine)"/>
+</svg>
