@@ -35,6 +35,7 @@ A 2,000-track collection is therefore roughly 15 hours of background analysis, r
 |---|---|---|
 | MusicGen stereo-small (fp32) | 35 s | 3.1 GB |
 | MusicGen medium (fp16) | 68 s | 4.7 GB (9.3 GB in fp32 - not used) |
+| Stable Audio Open 1.0 (fp16, 100 steps, 44.1 kHz) | 27 s (load 13 s cold, 2 s warm) | 5.5 GB (9.5 GB on disk) |
 | SD-Turbo stills 768x432 | ~2 s each after a 19 s load | 3.2 GB |
 
 ## Video (phase 5)

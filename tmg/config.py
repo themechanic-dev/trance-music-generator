@@ -49,12 +49,13 @@ DEFAULTS: dict[str, Any] = {
         "echo": 2,
         "fit": True,
     },
-    "neural": {                       # MusicGen textures under the arrangement (phase 6)
+    "neural": {                       # MusicGen / Stable Audio textures under the arrangement (phase 6)
         "enabled": False,
-        "model": "stereo-small",      # stereo-small | medium | melody
+        "model": "stereo-small",      # stereo-small | medium | melody | stable-audio
         "level_db": -10.0,
         "energy": True,               # also an energy layer in builds/drops (else atmosphere only)
         "ab": True,                   # keep a dry copy next to the track for A/B listening
+        "last_test": {},              # result of the last model self-test (Settings > Neural model)
     },
     "video": {
         "resolution": "1080p",        # 720p | 1080p | 1440p | 2160p

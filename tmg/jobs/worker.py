@@ -24,6 +24,8 @@ KINDS = {
     "library_profile": "tmg.jobs.kinds.library_profile",
     "compose": "tmg.jobs.kinds.compose",
     "render_video": "tmg.jobs.kinds.render_video",
+    "hf_check": "tmg.jobs.kinds.hf_check",
+    "model_test": "tmg.jobs.kinds.model_test",
 }
 
 

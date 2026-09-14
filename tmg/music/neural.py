@@ -26,6 +26,7 @@ MODELS = {
     "stereo-small": {"id": "facebook/musicgen-stereo-small", "dtype": "fp32", "melody": False, "vram_gb": 3.1, "label": "MusicGen stereo-small (fast, 35 s per clip)"},
     "medium": {"id": "facebook/musicgen-medium", "dtype": "fp16", "melody": False, "vram_gb": 4.7, "label": "MusicGen medium fp16 (better, 70 s per clip, mono)"},
     "melody": {"id": "facebook/musicgen-stereo-melody", "dtype": "fp16", "melody": True, "vram_gb": 5.5, "label": "MusicGen stereo-melody fp16 (follows our harmony, ~6 GB download)"},
+    "stable-audio": {"id": "stabilityai/stable-audio-open-1.0", "dtype": "fp16", "melody": False, "vram_gb": 6.0, "label": "Stable Audio Open 1.0 (44.1 kHz textures, needs the HuggingFace token)"},
 }
 CLIP_SECONDS = 30.0
 MUSICGEN_SR = 32000
@@ -60,10 +61,18 @@ def _load(model_key: str):
     if model_key in _loaded:
         return _loaded[model_key]
     import torch
-    from transformers import AutoProcessor
 
     spec = MODELS[model_key]
     dtype = torch.float16 if spec["dtype"] == "fp16" else torch.float32
+    if model_key == "stable-audio":
+        from diffusers import StableAudioPipeline
+
+        pipe = StableAudioPipeline.from_pretrained(spec["id"], torch_dtype=dtype).to("cuda")
+        pipe.set_progress_bar_config(disable=True)
+        _loaded[model_key] = (None, pipe)
+        return _loaded[model_key]
+    from transformers import AutoProcessor
+
     processor = AutoProcessor.from_pretrained(spec["id"])
     if spec["melody"]:
         from transformers import MusicgenMelodyForConditionalGeneration as Cls
@@ -72,6 +81,11 @@ def _load(model_key: str):
     model = Cls.from_pretrained(spec["id"], dtype=dtype, use_safetensors=True).to("cuda").eval()
     _loaded[model_key] = (processor, model)
     return processor, model
+
+
+def ensure_loaded(model_key: str) -> None:
+    """Load the model on the GPU now (the self-test times this step on its own)."""
+    _load(model_key)
 
 
 def unload() -> None:
@@ -105,6 +119,26 @@ def generate(model_key: str, prompt: str, seconds: float, seed: int, *, melody: 
     processor, model = _load(model_key)
     load_s = time.perf_counter() - t0
     spec = MODELS[model_key]
+    if model_key == "stable-audio":
+        # latent diffusion at 44.1 kHz stereo, up to 47 s; the negative prompt keeps drums and voice out
+        gen = torch.Generator("cuda").manual_seed(seed)
+        t1 = time.perf_counter()
+        result = model(prompt, negative_prompt="drums, percussion, vocals, low quality, noise, distortion",
+                       num_inference_steps=100, audio_end_in_s=min(47.0, float(seconds)), num_waveforms_per_prompt=1, generator=gen)
+        gen_s = time.perf_counter() - t1
+        audio = result.audios[0].float().cpu().numpy()          # (C, T) at the VAE rate
+        sr_out = int(model.vae.sampling_rate)
+        if audio.shape[0] == 1:
+            audio = np.vstack([audio, audio])
+        if sr_out != SAMPLE_RATE:
+            g = math.gcd(sr_out, SAMPLE_RATE)
+            audio = resample_poly(audio, SAMPLE_RATE // g, sr_out // g, axis=1).astype(np.float32)
+        peak = float(np.abs(audio).max()) or 1.0
+        audio = (audio / peak * 0.9).astype(np.float32)
+        sf.write(str(path), audio.T, SAMPLE_RATE, format="WAV", subtype="PCM_16")
+        if log:
+            log(f"neural clip stable-audio: {seconds:.0f} s in {gen_s:.0f} s (load {load_s:.0f} s) -> {path.name}")
+        return audio, {"cached": False, "path": str(path), "model": model_key, "load_s": round(load_s, 1), "gen_s": round(gen_s, 1)}
     frame_rate = model.config.audio_encoder.frame_rate
     sr_out = model.config.audio_encoder.sampling_rate
     if spec["melody"] and melody is not None:

@@ -79,5 +79,5 @@ def test_build_layer_and_mix():
 
 
 def test_models_table():
-    assert set(neural.MODELS) == {"stereo-small", "medium", "melody"}
+    assert set(neural.MODELS) == {"stereo-small", "medium", "melody", "stable-audio"}
     assert neural.MODELS["melody"]["melody"] and not neural.MODELS["medium"]["melody"]

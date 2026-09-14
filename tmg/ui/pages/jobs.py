@@ -20,6 +20,8 @@ KIND_LABELS = {
     "library_profile": "Rebuild style profile",
     "compose": "Compose a track",
     "render_video": "Render the video (GPU visuals + NVENC)",
+    "hf_check": "HuggingFace token and model access check",
+    "model_test": "Neural model self-test (load on the GPU + short clip)",
 }
 
 

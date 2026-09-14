@@ -224,10 +224,11 @@ class ComposePage(Gtk.Box):
     def _build_neural_group(self) -> None:
         s = self.settings
         g = Adw.PreferencesGroup(
-            title="Neural sound (MusicGen)",
+            title="Neural sound (MusicGen / Stable Audio Open)",
             description="Real timbre under the arrangement: two ~30 s clips per track are generated from the plan (tempo, key, "
                         "flavor), stretched to the tempo when close enough, looped bar by bar under every section, high-passed "
-                        "so the kick and bass stay ours, ducked by the kick. On this GPU: about 35 s per clip (small) or 70 s (medium, melody).",
+                        "so the kick and bass stay ours, ducked by the kick. On this GPU: about 35 s per clip (small), 70 s (medium, "
+                        "melody) or 27 s (Stable Audio Open). Settings > Neural model shows whether the chosen model is downloaded and working.",
         )
         self.nn_enabled = Adw.SwitchRow(title="Add neural textures")
         self.nn_enabled.set_active(bool(s.get("neural.enabled", False)))
@@ -249,7 +250,7 @@ class ComposePage(Gtk.Box):
         self.nn_energy.set_active(bool(s.get("neural.energy", True)))
         self.nn_energy.connect("notify::active", lambda r, _p: s.set("neural.energy", r.get_active()))
         g.add(self.nn_energy)
-        self.nn_ab = Adw.SwitchRow(title="Keep a dry copy for A/B", subtitle="Writes '<track>-dry' next to the track: the same music without the neural layer")
+        self.nn_ab = Adw.SwitchRow(title="Keep a dry copy for A/B", subtitle="Writes '[track]-dry' next to the track: the same music without the neural layer")
         self.nn_ab.set_active(bool(s.get("neural.ab", True)))
         self.nn_ab.connect("notify::active", lambda r, _p: s.set("neural.ab", r.get_active()))
         g.add(self.nn_ab)

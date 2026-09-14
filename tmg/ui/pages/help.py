@@ -19,7 +19,7 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
         "Everything runs locally on this machine and its NVIDIA GPU; nothing is installed system-wide.",
         [
             ("Available now (all phases)", "Capturing phrases from the system audio, the phrase bank with the trim editor, library import and analysis, the style profile ('What it learned'), composing new tracks from the profile with phrases inside them, optional MusicGen textures with A/B, MP3 / WAV export, and MP4 videos with GPU visuals that follow the music."),
-            ("Later", "Fine-tuning MusicGen on your library once the whole collection is analysed; Stable Audio Open once a HuggingFace token is saved."),
+            ("Later", "Fine-tuning MusicGen on your library once the whole collection is analysed."),
         ],
     ),
     (
@@ -130,7 +130,7 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
         ],
     ),
     (
-        "Neural sound (MusicGen)",
+        "Neural sound (MusicGen / Stable Audio Open)",
         "The numpy composer stays the orchestrator - it knows every bar. MusicGen adds what it cannot: real timbre. "
         "Switch it on in the Compose tab under 'Neural sound'.",
         [
@@ -140,9 +140,16 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
                              "high-passed at 150 Hz so the kick and bass stay ours, and ducked by the kick."),
             ("Models", "stereo-small: fast (35 s per clip), stereo. medium: better timbre, 70 s per clip, mono. melody: follows the harmony of "
                        "our own rendered track (the model listens to the section it will play under), ~6 GB download the first time."),
-            ("A/B", "'Keep a dry copy' writes the same track without the neural layer as '<track>-dry' in data/output. Listen to both; "
+            ("A/B", "'Keep a dry copy' writes the same track without the neural layer as '[track]-dry' in data/output. Listen to both; "
                     "if the neural layer does not earn its place, leave it off - nothing else changes."),
-            ("Stable Audio Open", "Gated on HuggingFace: save your token in Settings and it becomes an option in a later update."),
+            ("Stable Audio Open", "Gated on HuggingFace: create a free account, accept access on the model page, save the token in "
+                                  "Settings > HuggingFace, press 'Check token and model access' until the model says ok, then pick "
+                                  "'Stable Audio Open 1.0' as the model. It works at 44.1 kHz (about 27 s per clip, 5.5 GB of GPU "
+                                  "memory) and is at its best on textures, pads and risers; ~10 GB download the first time."),
+            ("Self-test", "Settings > Neural model shows the model chosen here, whether it is downloaded (and how big it is) and the "
+                          "result of the last self-test. 'Test the selected model' loads it on the GPU, generates a short clip and "
+                          "reports load time, clip time and peak GPU memory - WORKING or NOT WORKING with the reason. The Jobs tab "
+                          "shows it running; the clip lands in data/test/model-test."),
             ("Fine-tuning on your library", "Not done yet: a real fine-tune (LoRA over thousands of 30 s clips with captions from the analysis) is "
                                             "hours of training and only worth it once the whole collection is analysed. The analysis already stores "
                                             "what such a dataset needs (tempo, key, sections per track)."),
@@ -167,8 +174,10 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
                                            "(-45 dB is a good default); padding keeps a little air around the phrase."),
             ("Normalise peak", "Scales the phrase so that its loudest sample sits at the target (-1 dB by default), so all phrases have a similar level."),
             ("HuggingFace token", "Needed only for gated models such as Stable Audio Open. Create a free account at huggingface.co, "
-                                  "open the model page, click to accept access, then create a token under Settings > Access Tokens (Read) "
-                                  "and paste it here. It is stored in models/hf/token inside the project folder and never shown again."),
+                                  "open the model page and accept access, then create a token under Settings > Access Tokens - the simple "
+                                  "'Read' type is the easiest; a fine-grained token also needs 'Read contents of public gated repos you can access'. "
+                                  "Paste it here. It is stored in models/hf/token inside the project folder and never shown again. "
+                                  "'Check token and model access' tells you exactly what is missing."),
             ("Environment check", "Runs a job that verifies the GPU, CUDA, ffmpeg with NVENC (a real test encode), the libraries and the downloaded models."),
         ],
     ),

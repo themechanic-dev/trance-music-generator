@@ -25,7 +25,7 @@ this folder.
    kaleidoscope, julia, mandelbulb, menger, metaballs, particles, spectrum, stills) driven by the composer's
    own timeline and the real audio spectrum: a pulse on every kick, a flash and a cut on every drop, calm liquid
    pictures in the breakdowns. Encoded with NVENC to MP4 in about a minute per track.
-5. **Optional neural textures.** MusicGen clips generated from the plan, fitted to the tempo, looped under each
+5. **Optional neural textures.** MusicGen or Stable Audio Open clips generated from the plan, fitted to the tempo, looped under each
    section, high-passed and ducked so the kick and bass stay yours - with a dry copy for A/B listening.
    AI stills (SD-Turbo) for the video are optional too.
 
@@ -37,9 +37,10 @@ this folder.
 
 - Linux with GNOME (Wayland or X11), PipeWire, and the GTK 4 / libadwaita Python bindings
   (`python3-gi gir1.2-gtk-4.0 gir1.2-adw-1` on Ubuntu / Debian).
-- An NVIDIA GPU with 12 GB of memory and a recent driver (CUDA 12/13 capable). Demucs, MusicGen, SD-Turbo,
-  the GLSL visuals and NVENC all run on it - one step at a time, never two models at once.
-- About 25 GB of disk after the first run (PyTorch with CUDA, Demucs, MusicGen small models, SD-Turbo).
+- An NVIDIA GPU with 12 GB of memory and a recent driver (CUDA 12/13 capable). Demucs, MusicGen, Stable Audio
+  Open, SD-Turbo, the GLSL visuals and NVENC all run on it - one step at a time, never two models at once.
+- About 25 GB of disk after the first run (PyTorch with CUDA, Demucs, MusicGen small models, SD-Turbo);
+  10 GB more if you enable Stable Audio Open (gated on HuggingFace - see Help in the app).
 
 ## Install and run
 
@@ -68,7 +69,7 @@ tmg/
   capture/              PipeWire capture (pw-record on the sink monitor), phrase bank, trim
   library/              scan (track / CD / collection), per-track analysis, style profile
   music/                synth + voices (from Trance AutoDJ), plan drawn from the profile, composer (+ timeline),
-                        render (MP3/WAV + tags), phrases_mix, neural (MusicGen)
+                        render (MP3/WAV + tags), phrases_mix, neural (MusicGen / Stable Audio Open)
   visuals/              timeline signals, audio spectrum, palettes, shot sequencer, GLSL shaders, moderngl
                         engine, NVENC renderer, AI stills
   jobs/                 queue (GUI side), worker (.venv side), job kinds

@@ -26,9 +26,10 @@ audio = pipe(prompt, negative_prompt="low quality, noise", num_inference_steps=1
 torch.cuda.synchronize(); t_gen = time.perf_counter() - t0
 vram = torch.cuda.max_memory_allocated() / 2**30
 a = audio[0].float().cpu().numpy(); dur = a.shape[-1]/sr
-print(f"generated {dur:.1f}s ({a.shape[0]}ch) in {t_gen:.1f}s ({dur/t_gen:.2f}x realtime) peakVRAM={vram:.2f} GB")
+raw_peak = float(abs(a).max()); a = a / (raw_peak or 1.0) * 0.95  # the VAE output exceeds +/-1.0 - normalise like MusicGen
+print(f"generated {dur:.1f}s ({a.shape[0]}ch) in {t_gen:.1f}s ({dur/t_gen:.2f}x realtime) peakVRAM={vram:.2f} GB rawpeak={raw_peak:.2f}")
 os.makedirs(outdir, exist_ok=True); base = model_id.split("/")[-1]
 wpath = os.path.join(outdir, base + ".wav"); sf.write(wpath, a.T, sr, subtype="PCM_16")
 subprocess.run([FFMPEG, "-v", "error", "-y", "-i", wpath, "-codec:a", "libmp3lame", "-q:a", "2", os.path.join(outdir, base + ".mp3")], check=True)
-json.dump({"model": model_id, "load_s": t_load, "gen_s": t_gen, "audio_s": dur, "peak_vram_gb": vram}, open(os.path.join(outdir, base + ".json"), "w"), indent=1)
+json.dump({"model": model_id, "load_s": t_load, "gen_s": t_gen, "audio_s": dur, "peak_vram_gb": vram, "raw_peak": raw_peak}, open(os.path.join(outdir, base + ".json"), "w"), indent=1)
 print("out:", os.path.join(outdir, base + ".mp3"))

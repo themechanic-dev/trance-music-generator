@@ -4,6 +4,7 @@ torchaudio
 demucs
 transformers
 diffusers
+torchsde
 accelerate
 librosa
 soundfile
@@ -18,3 +19,4 @@ sentencepiece
 protobuf
 huggingface_hub
 pytest
+ruff

@@ -1,4 +1,4 @@
-"""Settings tab: capture, HuggingFace token, environment check, about."""
+"""Settings tab: capture, library, video, HuggingFace token, neural model self-test, environment check, about."""
 
 from __future__ import annotations
 
@@ -12,6 +12,9 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from tmg import SIGNATURE_LINE, SIGNATURE_MARK, __version__, log, paths  # noqa: E402
 from tmg.capture import pipewire  # noqa: E402
+from tmg.db import utc_now as dbmod_utc_now  # noqa: E402
+from tmg.jobs.kinds import model_test  # noqa: E402  (stdlib-only at import time; the heavy work runs in the worker)
+from tmg.music.neural import MODELS as NEURAL_MODELS  # noqa: E402
 from tmg.visuals.sequencer import GENERATORS  # noqa: E402
 
 _log = log.get("ui.settings")
@@ -58,6 +61,7 @@ class SettingsPage(Adw.PreferencesPage):
         self._build_library()
         self._build_video()
         self._build_huggingface()
+        self._build_neural_model()
         self._build_environment()
         self._build_about()
         app.add_job_listener(self._on_job_event)
@@ -257,6 +261,12 @@ class SettingsPage(Adw.PreferencesPage):
         remove = Adw.ButtonRow(title="Remove saved token")
         remove.connect("activated", self._remove_token)
         g.add(remove)
+        check = Adw.ButtonRow(title="Check token and model access")
+        check.connect("activated", lambda *_: (self.app.jobs.submit("hf_check", {}), self.hf_result.set_subtitle("checking...")))
+        g.add(check)
+        self.hf_result = Adw.ActionRow(title="Last check", subtitle="not run yet")
+        self.hf_result.set_subtitle_lines(0)
+        g.add(self.hf_result)
         self._update_token_status()
         self.add(g)
 
@@ -287,6 +297,53 @@ class SettingsPage(Adw.PreferencesPage):
             self.app.toast("No token was saved")
         self._update_token_status()
 
+    # ---- neural model ----------------------------------------------------------------
+    def _build_neural_model(self) -> None:
+        g = Adw.PreferencesGroup(
+            title="Neural model",
+            description="The model the composer uses for neural textures (chosen in Compose > Neural sound): is it downloaded, "
+                        "does it load on the GPU, does it make sound? The self-test loads it, generates a short clip and reports "
+                        "load time, clip time and peak GPU memory. It runs as a job - the Jobs tab shows it running.",
+        )
+        self.model_row = Adw.ActionRow(title="Selected model")
+        self.model_row.set_subtitle_lines(0)
+        g.add(self.model_row)
+        test = Adw.ButtonRow(title="Test the selected model")
+        test.connect("activated", self._run_model_test)
+        g.add(test)
+        self.model_test_row = Adw.ActionRow(title="Self-test", subtitle="not run yet")
+        self.model_test_row.set_subtitle_lines(0)
+        g.add(self.model_test_row)
+        self.connect("map", lambda *_: self._refresh_model_rows())
+        self._refresh_model_rows()
+        self.add(g)
+
+    def _refresh_model_rows(self) -> None:
+        key = self.s.get("neural.model", "stereo-small")
+        spec = NEURAL_MODELS.get(key)
+        if spec is None:
+            self.model_row.set_subtitle(esc(f"{key}: unknown model - pick one in Compose > Neural sound"))
+            return
+        try:
+            downloaded, size_gb = model_test.cache_info(spec["id"])
+        except OSError:
+            downloaded, size_gb = False, 0.0
+        state = f"downloaded ({size_gb} GB in models/hf)" if downloaded else "not downloaded yet (fetched on first use or by the self-test)"
+        self.model_row.set_subtitle(esc(f"{spec['label']}\n{spec['id']} - {state}"))
+        last = self.s.get("neural.last_test") or {}
+        if last.get("model") == key and last.get("summary"):
+            self.model_test_row.set_subtitle(esc(last["summary"]))
+        elif last.get("model"):
+            self.model_test_row.set_subtitle(esc(f"not run for this model yet (last tested: {last['model']})"))
+        else:
+            self.model_test_row.set_subtitle("not run yet")
+
+    def _run_model_test(self, *_) -> None:
+        key = self.s.get("neural.model", "stereo-small")
+        self.app.jobs.submit("model_test", {"model": key})
+        self.model_test_row.set_subtitle(esc(f"{key}: queued..."))
+        self.app.toast(f"Self-test of {key} started - see the Jobs tab")
+
     # ---- environment -----------------------------------------------------------------
     def _build_environment(self) -> None:
         g = Adw.PreferencesGroup(
@@ -308,6 +365,19 @@ class SettingsPage(Adw.PreferencesPage):
         self.app.toast("Environment check started - see the Jobs tab")
 
     def _on_job_event(self, job_id, kind, params, event) -> None:
+        if kind == "model_test":
+            self._on_model_test_event(params, event)
+            return
+        if kind == "hf_check" and event.get("event") == "finished":
+            r = event.get("result") or {}
+            if event.get("status") != "done":
+                self.hf_result.set_subtitle(esc(f"failed: {(event.get('message') or '').splitlines()[0]}"))
+                return
+            lines = [f"token: {r.get('token')}" + (f" ('{r.get('token_name')}', {r.get('role')}, permissions: {', '.join(r.get('permissions') or []) or 'none'})" if r.get("token") == "valid" else "")]
+            for repo, status in (r.get("models") or {}).items():
+                lines.append(f"{repo}: {status}")
+            self.hf_result.set_subtitle(esc("\n".join(lines)))
+            return
         if kind != "env_check" or event.get("event") != "finished":
             return
         if event.get("status") == "done":
@@ -319,6 +389,29 @@ class SettingsPage(Adw.PreferencesPage):
             dialog.present(self.get_root())
         else:
             self.env_row.set_subtitle(esc(f"failed: {event.get('message')}"))
+
+    def _on_model_test_event(self, params: dict, event: dict) -> None:
+        key = params.get("model", "?")
+        name = event.get("event")
+        if name == "started":
+            self.model_test_row.set_subtitle(esc(f"{key}: starting the worker..."))
+        elif name == "progress":
+            self.model_test_row.set_subtitle(esc(f"{key}: {event.get('message', '')}"))
+        elif name == "finished":
+            r = dict(event.get("result") or {})
+            if event.get("status") == "done" and r.get("working"):
+                text = model_test.summary(r)
+                self.app.toast(f"{key}: working")
+            else:
+                spec = NEURAL_MODELS.get(key, {})
+                r.update(model=key, model_id=spec.get("id", "?"), working=False,
+                         error=(event.get("message") or "failed").splitlines()[0])
+                r.setdefault("tested_utc", dbmod_utc_now())
+                text = model_test.summary(r)
+                self.app.toast(f"{key}: NOT working - see the Jobs tab", 6)
+            self.s.set("neural.last_test", {"model": key, "summary": text, "utc": r.get("tested_utc", "")})
+            _log.info("neural model self-test:\n%s", text)
+            self._refresh_model_rows()
 
     # ---- about ---------------------------------------------------------------------
     def _build_about(self) -> None:
