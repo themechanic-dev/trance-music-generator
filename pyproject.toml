@@ -1,0 +1,21 @@
+[project]
+name = "trance-music-generator"
+version = "1.0.0"
+description = "Learns trance from your library, composes new tracks, grabs phrases from the system audio, renders MP3/MP4 with GPU visuals."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "B008", "B023", "E731", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/phase0/*" = ["E701", "E702", "E402", "F841"]   # one-off measurement scripts, written for reading top to bottom
+"tmg/ui/**" = ["E402"]                   # gi.require_version() must run before the gi.repository imports

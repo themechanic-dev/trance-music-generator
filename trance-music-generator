@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Launcher: GUI on the system Python (GTK4), workers on the .venv - see env.sh.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=env.sh
+source "$HERE/env.sh"
+exec /usr/bin/python3 -m tmg.ui.app "$@"

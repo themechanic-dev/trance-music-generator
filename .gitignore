@@ -1,0 +1,18 @@
+# The whole installation lives inside the folder - none of this is code
+.venv/
+tools/python/
+tools/uv-cache/
+tools/cache/
+tools/ffmpeg/
+tools/uv
+tools/uvx
+models/
+data/
+__pycache__/
+*.pyc
+
+# private working notes (Greek) - not part of the public repository
+ΣΧΕΔΙΟ.md
+ΜΕΤΡΗΣΕΙΣ.md
+*.desktop
+.pytest_cache/
