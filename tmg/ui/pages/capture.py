@@ -18,6 +18,8 @@ from tmg.ui.widgets.waveform import WaveformView  # noqa: E402
 
 _log = log.get("ui.phrases")
 
+LIST_LIMIT = 500   # rows on screen at once; the counts line says how many more there are
+
 STATUS_LABEL = {
     "recording": "recording...",
     "raw": "raw",
@@ -162,8 +164,9 @@ class CapturePage(Gtk.Box):
         title.add_css_class("heading")
         self.search = Gtk.SearchEntry(placeholder_text="Search phrases...", hexpand=True)
         self.search.connect("search-changed", lambda *_: self.reload())
-        self.source_filter = Gtk.DropDown.new_from_strings(["All", "Captured", "From library"])
-        self.source_filter.connect("notify::selected", lambda *_: self.reload())
+        self.source_model = Gtk.StringList.new(["All", "Captured", "From library"])
+        self.source_filter = Gtk.DropDown(model=self.source_model)
+        self.source_filter.connect("notify::selected", lambda *_: None if self._reloading else self.reload())
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Open the phrase folder")
         open_btn.add_css_class("flat")
         open_btn.connect("clicked", self._open_folder)
@@ -172,6 +175,10 @@ class CapturePage(Gtk.Box):
         header.append(self.source_filter)
         header.append(open_btn)
         self.content.append(header)
+        self.count_label = Gtk.Label(xalign=0, wrap=True)
+        self.count_label.add_css_class("dim-label")
+        self.count_label.add_css_class("caption")
+        self.content.append(self.count_label)
 
         self.listbox = Gtk.ListBox()
         self.listbox.add_css_class("boxed-list")
@@ -396,6 +403,22 @@ class CapturePage(Gtk.Box):
             self._select_phrase(self.db.get_phrase(pid))
 
     # ---- the list -------------------------------------------------------------------
+    def _update_counts(self, source: str | None, search: str | None, shown: int) -> None:
+        """Counts in the filter labels ('All (2093)') and a line saying how much of the bank is on screen."""
+        n_cap, n_lib = self.db.count_phrases("capture"), self.db.count_phrases("library")
+        labels = [f"All ({n_cap + n_lib})", f"Captured ({n_cap})", f"From library ({n_lib})"]
+        if [self.source_model.get_string(i) for i in range(3)] != labels:
+            selected = self.source_filter.get_selected()
+            self.source_model.splice(0, 3, labels)
+            self.source_filter.set_selected(selected)
+        total = self.db.count_phrases(source, search=search)
+        text = f"{n_cap + n_lib} phrases in the bank: {n_cap} captured from the system audio, {n_lib} from the library."
+        if search:
+            text += f"  {total} match '{search}'."
+        if total > shown:
+            text += f"  Showing the newest {shown} of {total} - search by track name or phrase name to narrow."
+        self.count_label.set_label(text)
+
     def reload(self) -> None:
         sel_id = self._selected["id"] if self._selected else None
         self._reloading = True
@@ -403,7 +426,9 @@ class CapturePage(Gtk.Box):
             while (row := self.listbox.get_row_at_index(0)) is not None:
                 self.listbox.remove(row)
             source = {0: None, 1: "capture", 2: "library"}.get(self.source_filter.get_selected())
-            rows = self.db.list_phrases(source=source, search=self.search.get_text().strip() or None, limit=500)
+            search = self.search.get_text().strip() or None
+            rows = self.db.list_phrases(source=source, search=search, limit=LIST_LIMIT)
+            self._update_counts(source, search, len(rows))
             for p in rows:
                 row = PhraseRow(p, self._on_play_row, self._on_edit_row, self._on_delete_row)
                 self.listbox.append(row)

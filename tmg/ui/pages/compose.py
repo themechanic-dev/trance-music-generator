@@ -188,9 +188,11 @@ class ComposePage(Gtk.Box):
         self.ph_intro.connect("notify::active", lambda r, _p: s.set("phrases.intro", r.get_active()))
         g.add(self.ph_intro)
         self.ph_source = Adw.ComboRow(title="Which phrases")
-        self.ph_source.set_model(Gtk.StringList.new([w[0] for w in SOURCES]))
-        self.ph_source.set_selected(int(s.get("phrases.source_index", 0)))
+        self._source_model = Gtk.StringList.new(self._source_labels())
+        self.ph_source.set_model(self._source_model)
+        self.ph_source.set_selected(int(s.get("phrases.source_index", 2)))
         self.ph_source.connect("notify::selected", self._on_source_changed)
+        self.connect("map", lambda *_: self._refresh_source_labels())
         pick = Gtk.Button(label="Select...", valign=Gtk.Align.CENTER)
         pick.connect("clicked", self._pick_phrases)
         self.ph_source.add_suffix(pick)
@@ -262,7 +264,26 @@ class ComposePage(Gtk.Box):
                 "level_db": float(s.get("neural.level_db", -10.0)), "energy": bool(s.get("neural.energy", True)),
                 "ab": bool(s.get("neural.ab", True))}
 
+    def _source_labels(self) -> list[str]:
+        """The source names with how many phrases each one draws from, so an empty choice is visible."""
+        n_cap, n_lib = self.db.count_phrases("capture", "ready"), self.db.count_phrases("library", "ready")
+        counts = {"captured": n_cap, "library": n_lib, "all": n_cap + n_lib}
+        return [f"{label} ({counts[key]})" if key in counts else label for label, key in SOURCES]
+
+    def _refresh_source_labels(self) -> None:
+        labels = self._source_labels()
+        if [self._source_model.get_string(i) for i in range(len(SOURCES))] != labels:
+            self._labels_refreshing = True
+            try:
+                selected = self.ph_source.get_selected()
+                self._source_model.splice(0, len(SOURCES), labels)
+                self.ph_source.set_selected(selected)
+            finally:
+                self._labels_refreshing = False
+
     def _on_source_changed(self, row, _p) -> None:
+        if getattr(self, "_labels_refreshing", False):
+            return
         self.settings.set("phrases.source_index", int(row.get_selected()))
         if SOURCES[row.get_selected()][1] == "selected" and not self.settings.get("phrases.ids"):
             self._pick_phrases()
@@ -321,7 +342,7 @@ class ComposePage(Gtk.Box):
         return {
             "enabled": bool(s.get("phrases.enabled", True)), "count": int(s.get("phrases.count", 2)),
             "where": WHERE[int(s.get("phrases.where_index", 0))][1], "intro": bool(s.get("phrases.intro", False)),
-            "source": SOURCES[int(s.get("phrases.source_index", 0))][1], "ids": list(s.get("phrases.ids") or []),
+            "source": SOURCES[int(s.get("phrases.source_index", 2))][1], "ids": list(s.get("phrases.ids") or []),
             "level_db": float(s.get("phrases.level_db", -6.0)), "telephone": bool(s.get("phrases.telephone", False)),
             "echo": int(s.get("phrases.echo", 2)), "fit": bool(s.get("phrases.fit", True)),
         }

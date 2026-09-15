@@ -15,7 +15,7 @@ from collections import Counter
 
 import numpy as np
 
-ANALYSIS_VERSION = 1
+ANALYSIS_VERSION = 2   # 2: vocal_segments picks spoken phrases by a speech score, not by loudness
 SR = 44100          # decoding / Demucs rate
 ASR = 22050         # analysis rate
 HOP = 512
@@ -276,14 +276,83 @@ def segment_sections(kick_active: np.ndarray, energy_db: np.ndarray, min_run: in
     return sections
 
 
-def vocal_segments(vocals_22k: np.ndarray, sr: int = ASR, hop: int = HOP, threshold_db: float = -35.0,
-                   min_len: float = 0.8, max_len: float = 8.0, gap: float = 0.35, max_count: int = 3) -> list[dict]:
-    """Where someone is speaking or singing in the vocals stem: [{start, end, level_db}], loudest first."""
+SPEECH_MIN_SCORE = 0.5
+
+
+def speech_features(y: np.ndarray, sr: int = ASR) -> dict:
+    """What separates a spoken line from a sung note, a vocal chop or an effect, measured on one clip of the
+    vocals stem: syllable gaps in the envelope, voiced/unvoiced alternation, energy in the voice band, tonal
+    (not noisy) spectrum, and whether the envelope pulses in lock with a beat. Cheap: RMS, STFT, ZCR."""
+    import librosa
+
+    hop, n_fft = 256, 1024
+    rms = librosa.feature.rms(y=y, frame_length=n_fft, hop_length=hop)[0]
+    if rms.size < 8 or rms.max() <= 1e-6:
+        return {"dips": 0.0, "active": 1.0, "zcr_std": 0.0, "band": 0.0, "flat": 1.0, "mod_hz": 0.0, "mod_peak": 0.0}
+    env = rms / rms.max()
+    db = 20 * np.log10(rms + 1e-9)
+    dips = float((env < 0.25).mean())                       # fraction of the clip in the gaps between syllables
+    active = float((db > db.max() - 20).mean())              # fraction within 20 dB of the peak (sustained sounds -> ~1)
+    zcr = librosa.feature.zero_crossing_rate(y, frame_length=n_fft, hop_length=hop)[0]
+    S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop)) ** 2
+    f = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+    total = float(S.sum()) + 1e-12
+    band = float(S[(f >= 300) & (f <= 3400)].sum() / total)  # the voice band
+    flat_frames = librosa.feature.spectral_flatness(S=S)[0]
+    loud = env[: len(flat_frames)] > 0.1                     # silence is 'flat' too - judge the sound, not the gaps
+    flat = float(flat_frames[loud].mean()) if loud.any() else 1.0
+    # envelope modulation spectrum: where does the clip pulse, and how strongly
+    e = env - env.mean()
+    spec = np.abs(np.fft.rfft(e * np.hanning(len(e)))) ** 2
+    fr = np.fft.rfftfreq(len(e), hop / sr)
+    sel = (fr >= 1.0) & (fr <= 12.0)
+    tot = float(spec[(fr >= 0.5) & (fr <= 20.0)].sum()) + 1e-12
+    if sel.any():
+        k = int(np.argmax(spec[sel]))
+        mod_hz, mod_peak = float(fr[sel][k]), float(spec[sel][k] / tot)
+    else:
+        mod_hz, mod_peak = 0.0, 0.0
+    return {"dips": round(dips, 3), "active": round(active, 3), "zcr_std": round(float(zcr.std()), 4), "band": round(band, 3),
+            "flat": round(flat, 4), "mod_hz": round(mod_hz, 2), "mod_peak": round(mod_peak, 3)}
+
+
+def speech_score(feat: dict, bpm: float | None = None) -> float:
+    """0..1: how much a clip behaves like someone talking. Calibrated on a captured spoken line (scores ~1.0)
+    against 2,000 loudest-first library picks that were mostly sustained vocals and effects (median ~0.35)."""
+    def ramp(x: float, lo: float, hi: float) -> float:
+        return float(min(1.0, max(0.0, (x - lo) / (hi - lo))))
+
+    # the temporal shape of talking: gaps between syllables, not one sustained sound, consonants alternating with vowels
+    s_dips = ramp(feat["dips"], 0.15, 0.50)
+    s_active = ramp(0.9 - feat["active"], 0.0, 0.4)
+    s_zcr = ramp(feat["zcr_std"], 0.03, 0.10)
+    score = 0.4 * s_dips + 0.3 * s_active + 0.3 * s_zcr
+    # gates: the energy has to sit where a voice lives, and the spectrum has to be tonal, not noise or a sweep
+    score *= ramp(feat["band"], 0.30, 0.60)
+    score *= ramp(0.05 - feat["flat"], 0.0, 0.04)
+    if bpm and feat["mod_peak"] > 0.25:
+        beat = bpm / 60.0
+        if any(abs(feat["mod_hz"] / (beat * m) - 1.0) < 0.04 for m in (0.5, 1.0, 2.0, 4.0)):
+            score *= 0.4                             # pulsing in lock with the beat: a chop or a gated pad, not talk
+    return round(score, 3)
+
+
+def vocal_segments(vocals_22k: np.ndarray, sr: int = ASR, hop: int = HOP, threshold_db: float = -40.0,
+                   min_len: float = 1.2, max_len: float = 8.0, gap: float = 0.7, max_count: int = 3,
+                   bpm: float | None = None, min_score: float = SPEECH_MIN_SCORE) -> list[dict]:
+    """Spoken phrases in the vocals stem: [{start, end, level_db, score}], best first.
+
+    A candidate is a stretch of activity (RMS above the threshold, pauses shorter than `gap` bridged so a
+    sentence stays whole). It survives when it looks like speech - see speech_score - and the survivors are
+    ranked by that score, not by loudness: loudest-first picked sustained vocal pads, chops and effects over
+    the spoken lines the phrase bank is for.
+    """
     import librosa
 
     rms = librosa.feature.rms(y=vocals_22k, frame_length=2048, hop_length=hop)[0]
     db = 20 * np.log10(np.maximum(rms, 1e-7))
-    active = db > threshold_db
+    thr = max(threshold_db, float(db.max()) - 40.0)
+    active = db > thr
     fps = sr / hop
     segs: list[list[float]] = []
     i = 0
@@ -300,15 +369,27 @@ def vocal_segments(vocals_22k: np.ndarray, sr: int = ASR, hop: int = HOP, thresh
             i = j
         else:
             i += 1
-    out = []
+    # long stretches are cut at the quietest point before max_len, so a cut lands in a pause
+    pieces: list[tuple[float, float]] = []
     for s, e in segs:
+        while e - s > max_len:
+            lo, hi = int((s + 0.6 * max_len) * fps), int((s + max_len) * fps)
+            cut = (lo + int(np.argmin(db[lo:hi]))) / fps if hi > lo else s + max_len
+            pieces.append((s, cut))
+            s = cut
+        pieces.append((s, e))
+    out = []
+    for s, e in pieces:
         if e - s < min_len:
             continue
-        if e - s > max_len:
-            e = s + max_len
+        a, b = int(s * sr), int(e * sr)
+        feat = speech_features(vocals_22k[a:b], sr)
+        score = speech_score(feat, bpm)
+        if score < min_score:
+            continue
         lo, hi = int(s * fps), max(int(s * fps) + 1, int(e * fps))
-        out.append({"start": round(s, 3), "end": round(e, 3), "level_db": round(float(db[lo:hi].mean()), 1)})
-    out.sort(key=lambda d: -d["level_db"])
+        out.append({"start": round(s, 3), "end": round(e, 3), "level_db": round(float(db[lo:hi].mean()), 1), "score": score})
+    out.sort(key=lambda d: (-d["score"], -d["level_db"]))
     return out[:max_count]
 
 
@@ -383,9 +464,10 @@ def analyze(path: str, *, demucs_model=None, want_stems: bool = False, vocal_opt
 
     vocals = []
     if vocals22 is not None and vocal_opts is not None and vocal_opts.get("enabled", True):
-        vocals = vocal_segments(vocals22, threshold_db=float(vocal_opts.get("threshold_db", -35.0)),
-                                min_len=float(vocal_opts.get("min_len", 0.8)), max_len=float(vocal_opts.get("max_len", 8.0)),
-                                max_count=int(vocal_opts.get("max_count", 3)))
+        vocals = vocal_segments(vocals22, threshold_db=float(vocal_opts.get("threshold_db", -40.0)),
+                                min_len=float(vocal_opts.get("min_len", 1.2)), max_len=float(vocal_opts.get("max_len", 8.0)),
+                                max_count=int(vocal_opts.get("max_count", 3)), bpm=bpm,
+                                min_score=float(vocal_opts.get("min_score", SPEECH_MIN_SCORE)))
     timing["analysis"] = round(time.perf_counter() - t2, 2)
     timing["total"] = round(time.perf_counter() - t0, 2)
 

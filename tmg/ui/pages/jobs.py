@@ -22,6 +22,7 @@ KIND_LABELS = {
     "render_video": "Render the video (GPU visuals + NVENC)",
     "hf_check": "HuggingFace token and model access check",
     "model_test": "Neural model self-test (load on the GPU + short clip)",
+    "library_phrases": "Re-extract the library phrases (Demucs + speech score)",
 }
 
 

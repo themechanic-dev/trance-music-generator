@@ -70,8 +70,12 @@ SECTIONS: list[tuple[str, str, list[tuple[str, str]]]] = [
                                 "what usually follows a breakdown, the most common kick / snare / hat / bass patterns, keys and bass movement. "
                                 "This profile is what the composer will draw from - a different library gives different music."),
             ("Listening to the separation", "The stems of the first tracks of each run are kept as MP3 (Settings > Library) - use the folder button on the track."),
-            ("Vocal phrases from the library", "Spoken or sung bits found in the vocals stem are saved into the phrase bank, tagged 'from the library' "
-                                              "(Settings > Library: on/off, how many per track, threshold). Filter the phrase bank with 'From library'."),
+            ("Phrases from the library", "Spoken lines found in the vocals stem are saved into the phrase bank, tagged 'from the library'. "
+                                         "The rule is a speech score, not loudness: gaps between syllables, consonants alternating with vowels, "
+                                         "energy in the voice band, a tonal spectrum and no pulsing locked to the beat - so sung pads, vocal "
+                                         "chops and effects are left out. Up to 3 per track (Settings > Library analysis). 'Re-extract phrases' "
+                                         "in the Library tab runs the rule again over every analysed track and replaces the old picks (files "
+                                         "go to data/trash)."),
             ("Removing", "'Remove from the library' forgets the track; the audio file is never touched. 'Analyse again' re-queues it."),
         ],
     ),

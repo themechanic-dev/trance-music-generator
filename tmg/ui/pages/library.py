@@ -215,6 +215,8 @@ class LibraryPage(Gtk.Box):
         button("Retry failed", "view-refresh-symbolic", self._retry_failed, "Put failed tracks back in the queue")
         button("Rebuild profile", "emblem-synchronizing-symbolic", self._rebuild_profile,
                "Recompute 'what it learned' from the analysed tracks")
+        button("Re-extract phrases", "audio-input-microphone-symbolic", self._reextract_phrases,
+               "Run the current phrase rule (speech score) over every analysed track and replace the library phrases")
         card.append(self.counts_label)
         card.append(self.progress_label)
         card.append(self.progress_bar)
@@ -250,6 +252,42 @@ class LibraryPage(Gtk.Box):
         n = self.db.requeue_failed()
         self.app.toast(f"{n} failed track(s) queued again")
         self.reload()
+
+    def _reextract_phrases(self, *_) -> None:
+        if self._analyze_job is not None or self.app.jobs.busy():
+            self.app.toast("A job is running - wait for it to finish (or pause the analysis) first")
+            return
+        counts = self.db.track_counts()
+        n = counts.get("done", 0)
+        if not n:
+            self.app.toast("No analysed tracks yet")
+            return
+        s = self.settings
+        dialog = Adw.AlertDialog(
+            heading="Re-extract the library phrases?",
+            body=f"Runs Demucs again over the {n} analysed tracks (about 15 s each, roughly {n * 15 / 60:.0f} min on this GPU) and "
+                 "picks the phrases with the speech rule: gaps between syllables, consonants and vowels, energy in the voice "
+                 "band, no beat-locked pulsing. The current library phrases are replaced; their files go to data/trash. "
+                 "Tracks analysed with the current rule already are skipped.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("go", "Re-extract")
+        dialog.set_response_appearance("go", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("go")
+
+        def on_response(_d, response):
+            if response != "go":
+                return
+            self._phrases_job = self.app.jobs.submit("library_phrases", {
+                "vocal_threshold_db": float(s.get("library.vocal_threshold_db", -40.0)),
+                "vocal_max_count": int(s.get("library.vocal_max_count", 3)),
+                "min_score": float(s.get("library.vocal_min_score", 0.5)),
+            })
+            self.progress_label.set_label("re-extracting the phrases...")
+            self.app.toast("Phrase re-extraction started - see the Jobs tab")
+
+        dialog.connect("response", on_response)
+        dialog.present(self.get_root())
 
     def _rebuild_profile(self, *_) -> None:
         self.app.toast("Rebuilding the profile...")
@@ -408,3 +446,16 @@ class LibraryPage(Gtk.Box):
             self.reload()
         elif kind == "library_profile" and name == "finished":
             self.reload()
+        elif kind == "library_phrases":
+            if name == "progress":
+                self.progress_label.set_label(f"Phrases: {event.get('message', '')}")
+                self.progress_bar.set_fraction(float(event.get("fraction", 0.0)))
+            elif name == "finished":
+                r = event.get("result") or {}
+                if event.get("status") == "done":
+                    self.progress_label.set_label(f"Phrases re-extracted: {r.get('phrases', 0)} from {r.get('tracks', 0)} tracks, "
+                                                  f"{r.get('failed', 0)} failed, {r.get('minutes', 0)} min.")
+                    self.app.toast(f"{r.get('phrases', 0)} library phrases picked with the speech rule")
+                else:
+                    self.progress_label.set_label(f"Phrase re-extraction {event.get('status')}: {(event.get('message') or '').splitlines()[0]}")
+                self.reload()

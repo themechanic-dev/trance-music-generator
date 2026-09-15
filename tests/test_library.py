@@ -111,15 +111,52 @@ def test_bar_grid_and_downbeat():
     assert bars[0] == 1.0 and abs(bars[1] - 3.0) < 1e-9 and len(bars) == 9
 
 
-def test_vocal_segments():
+def _syllables(sr: int, seconds: float, rate_hz: float = 4.0, f0: float = 140.0) -> np.ndarray:
+    """A voice-like signal: harmonic 'vowels' shaped by formants around 600 and 1500 Hz, real gaps between the
+    syllables, and a whisper of band-limited noise at each syllable onset (the consonant)."""
+    from scipy.signal import butter, sosfilt
+
+    rng = np.random.default_rng(1)
+    n = int(sr * seconds)
+    t = np.arange(n) / sr
+    harm = np.zeros(n)
+    for k in range(1, 30):
+        f = f0 * k
+        formant = math.exp(-((f - 600) / 250) ** 2) + 0.7 * math.exp(-((f - 1500) / 400) ** 2)
+        harm += formant * np.sin(2 * math.pi * f * t + 0.3 * k)
+    harm /= np.abs(harm).max()
+    phase = (t * rate_hz) % 1.0
+    env = np.clip(np.sin(math.pi * np.minimum(phase, 0.55) / 0.55), 0.0, None) ** 0.7   # 55 % vowel, 45 % gap
+    env[phase >= 0.55] = 0.0
+    onset = np.where(phase < 0.14, 1.0, 0.0)                                             # the consonant
+    sos = butter(4, [2000, 5000], btype="band", fs=sr, output="sos")
+    noise = sosfilt(sos, rng.standard_normal(n)) * onset * 0.5
+    return (0.3 * harm * env + 0.3 * noise).astype(np.float32)
+
+
+def test_speech_score_prefers_talk_over_sustained_notes():
     sr = analysis.ASR
-    y = np.zeros(sr * 6, dtype=np.float32)
-    t = np.arange(sr * 2) / sr
-    y[sr * 1: sr * 3] = 0.3 * np.sin(2 * math.pi * 220 * t)      # 2 s of "voice" from 1 s to 3 s
-    y[int(sr * 4.5): int(sr * 4.8)] = 0.3                        # 0.3 s blip -> too short
+    talk = _syllables(sr, 3.0)
+    t = np.arange(sr * 3) / sr
+    note = (0.3 * np.sin(2 * math.pi * 220 * t)).astype(np.float32)
+    s_talk = analysis.speech_score(analysis.speech_features(talk, sr))
+    s_note = analysis.speech_score(analysis.speech_features(note, sr))
+    assert s_talk > 0.5 and s_note < 0.2                                     # 0.5 is the bank's admission line
+    locked = analysis.speech_score(analysis.speech_features(talk, sr), bpm=240.0)   # 4 Hz syllables == the beat
+    assert locked < s_talk
+
+
+def test_vocal_segments_keeps_the_talk_and_drops_the_rest():
+    sr = analysis.ASR
+    y = np.zeros(sr * 12, dtype=np.float32)
+    y[sr * 1: sr * 4] = _syllables(sr, 3.0)                                        # 3 s of "talk" from 1 s
+    t = np.arange(sr * 3) / sr
+    y[sr * 6: sr * 9] = (0.3 * np.sin(2 * math.pi * 220 * t)).astype(np.float32)   # 3 s sustained note
+    y[int(sr * 10.5): int(sr * 10.8)] = 0.3                                          # 0.3 s blip -> too short
     segs = analysis.vocal_segments(y, sr, max_count=3)
     assert len(segs) == 1
-    assert abs(segs[0]["start"] - 1.0) < 0.1 and abs(segs[0]["end"] - 3.0) < 0.1
+    assert abs(segs[0]["start"] - 1.0) < 0.15 and abs(segs[0]["end"] - 4.0) < 0.15
+    assert segs[0]["score"] >= analysis.SPEECH_MIN_SCORE
 
 
 def test_analyze_synthetic_track_without_demucs(tmp_path):

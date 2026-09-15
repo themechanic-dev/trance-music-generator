@@ -26,6 +26,7 @@ KINDS = {
     "render_video": "tmg.jobs.kinds.render_video",
     "hf_check": "tmg.jobs.kinds.hf_check",
     "model_test": "tmg.jobs.kinds.model_test",
+    "library_phrases": "tmg.jobs.kinds.library_phrases",
 }
 
 

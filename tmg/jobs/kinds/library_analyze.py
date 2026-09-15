@@ -47,7 +47,7 @@ def _save_vocal_phrases(db: dbmod.Database, track: dict, stems: dict, segments: 
         pid = _phrase_id(track["id"], n)
         out = paths.PHRASES / f"{pid}.wav"
         sf.write(str(out), clip.T, analysis.SR, format="WAV", subtype="PCM_16")
-        name = f"{track.get('title') or os.path.basename(track['path'])} · vocal {n}"
+        name = f"{track.get('title') or os.path.basename(track['path'])} · phrase {n}"
         db.add_phrase_full(pid, name, str(out), "library", "ready", round((b - a) / analysis.SR, 3), analysis.SR, 2, -1.0, track["id"])
         saved += 1
     return saved

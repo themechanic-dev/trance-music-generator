@@ -204,6 +204,28 @@ class Database:
     def count_phrases_for_track(self, track_id: int) -> int:
         return self._rows("SELECT count(*) AS n FROM phrases WHERE track_id = ?", (track_id,))[0]["n"]
 
+    def count_phrases(self, source: str | None = None, status: str | None = None, search: str | None = None) -> int:
+        sql, args = "SELECT count(*) AS n FROM phrases", []
+        where = []
+        if source:
+            where.append("source = ?")
+            args.append(source)
+        if status:
+            where.append("status = ?")
+            args.append(status)
+        if search:
+            where.append("name LIKE ?")
+            args.append(f"%{search}%")
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        return self._rows(sql, tuple(args))[0]["n"]
+
+    def phrases_for_track(self, track_id: int) -> list[dict[str, Any]]:
+        return self._rows("SELECT * FROM phrases WHERE track_id = ? ORDER BY id", (track_id,))
+
+    def tracks_done(self) -> list[dict[str, Any]]:
+        return self._rows("SELECT * FROM library_tracks WHERE status = 'done' ORDER BY id")
+
     # ---- library ------------------------------------------------------------
     def add_import(self, kind: str, root: str) -> int:
         return self._exec("INSERT INTO library_imports (kind, root, added_utc) VALUES (?,?,?)", (kind, root, utc_now()))

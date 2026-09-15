@@ -33,7 +33,8 @@ DEFAULTS: dict[str, Any] = {
         "keep_stems_first": 3,        # keep the stems (MP3) of the first N tracks of each run, to listen
         "extract_vocals": True,       # save vocal segments into the phrase bank
         "vocal_max_count": 3,
-        "vocal_threshold_db": -35.0,
+        "vocal_threshold_db": -40.0,
+        "vocal_min_score": 0.5,       # speech score a stretch of the vocals stem needs to become a phrase
         "last_folder": "",
     },
     "compose": {"count": 5, "length_index": 0, "flavor_index": 0, "format_index": 0, "bitrate": 192},
@@ -42,7 +43,7 @@ DEFAULTS: dict[str, Any] = {
         "count": 2,                   # per track
         "where_index": 0,             # 0 = breakdowns + before drops, 1 = breakdowns only, 2 = before drops only
         "intro": False,
-        "source_index": 0,            # 0 = captured, 1 = library, 2 = all, 3 = selected
+        "source_index": 2,            # 0 = captured, 1 = library, 2 = all, 3 = selected
         "ids": [],
         "level_db": -6.0,
         "telephone": False,
@@ -66,6 +67,7 @@ DEFAULTS: dict[str, Any] = {
         "ai_count": 8,
         "generators": {},             # name -> weight (0 = off); empty = every generator except stills at default weight
     },
+    "settings_version": 2,
     "ui": {
         "window_width": 1100,
         "window_height": 760,
@@ -96,6 +98,7 @@ class Settings:
                 stored = json.load(f)
             if isinstance(stored, dict):
                 self.data = _merge(DEFAULTS, stored)
+                self._migrate(stored)
         except FileNotFoundError:
             pass
         except (OSError, json.JSONDecodeError):
@@ -104,6 +107,19 @@ class Settings:
                 os.replace(self.path, str(self.path) + ".broken")
             except OSError:
                 pass
+
+    def _migrate(self, stored: dict[str, Any]) -> None:
+        """One-time changes to settings written by older versions."""
+        version = int(stored.get("settings_version", 1))
+        if version < 2:
+            # 1.0.0 defaulted the phrase source to 'captured', which silently ignores the library phrases
+            if int((stored.get("phrases") or {}).get("source_index", 0)) == 0:
+                self.data["phrases"]["source_index"] = 2
+            # the old vocal rule's threshold; the new speech rule wants the lower one
+            if float((stored.get("library") or {}).get("vocal_threshold_db", -35.0)) == -35.0:
+                self.data["library"]["vocal_threshold_db"] = -40.0
+            self.data["settings_version"] = 2
+            self.save()
 
     def save(self) -> None:
         with self._lock:
