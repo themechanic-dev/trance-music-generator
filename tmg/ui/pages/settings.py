@@ -170,6 +170,14 @@ class SettingsPage(Adw.PreferencesPage):
         vthr.set_value(float(self.s.get("library.vocal_threshold_db", -35.0)))
         vthr.connect("notify::value", lambda r, _p: self.s.set("library.vocal_threshold_db", float(r.get_value())))
         g.add(vthr)
+        vmin = Adw.SpinRow.new_with_range(0.2, 0.9, 0.05)
+        vmin.set_digits(2)
+        vmin.set_title("Minimum speech score")
+        vmin.set_subtitle("0..1: how much a stretch must behave like talking to enter the bank. 0.5 admits clear spoken lines; "
+                          "raise it if sung bits still get through, lower it if quiet or short lines are missed")
+        vmin.set_value(float(self.s.get("library.vocal_min_score", 0.5)))
+        vmin.connect("notify::value", lambda r, _p: self.s.set("library.vocal_min_score", round(float(r.get_value()), 2)))
+        g.add(vmin)
         self.add(g)
 
     # ---- video & visuals -------------------------------------------------------------
