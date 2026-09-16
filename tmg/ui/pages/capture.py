@@ -95,6 +95,9 @@ class CapturePage(Gtk.Box):
         self.page_scroller = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
         self.page_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.page_scroller.set_child(self.content)
+        # MINIMUM: the page scrolls only when its minimum height does not fit; otherwise the content is given the
+        # whole viewport, so the phrase list (vexpand) grows with the window instead of stopping at a fixed height
+        self.page_scroller.get_child().set_vscroll_policy(Gtk.ScrollablePolicy.MINIMUM)
         self.append(self.page_scroller)
         self.app = app
         self.settings = app.settings
@@ -184,7 +187,7 @@ class CapturePage(Gtk.Box):
         self.listbox.add_css_class("boxed-list")
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.connect("row-selected", self._on_row_selected)
-        scrolled = Gtk.ScrolledWindow(min_content_height=120, max_content_height=320, propagate_natural_height=True)
+        scrolled = Gtk.ScrolledWindow(min_content_height=160, vexpand=True)
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_child(self.listbox)
         self.empty = Adw.StatusPage(
@@ -193,7 +196,7 @@ class CapturePage(Gtk.Box):
             description="Record the first one with the button above.",
         )
         self.empty.add_css_class("compact")
-        self.list_stack = Gtk.Stack()
+        self.list_stack = Gtk.Stack(vexpand=True)
         self.list_stack.add_named(self.empty, "empty")
         self.list_stack.add_named(scrolled, "list")
         self.content.append(self.list_stack)
@@ -412,7 +415,8 @@ class CapturePage(Gtk.Box):
             self.source_model.splice(0, 3, labels)
             self.source_filter.set_selected(selected)
         total = self.db.count_phrases(source, search=search)
-        text = f"{n_cap + n_lib} phrases in the bank: {n_cap} captured from the system audio, {n_lib} from the library."
+        n = n_cap + n_lib
+        text = f"{n} phrase{'s' if n != 1 else ''} in the bank: {n_cap} captured from the system audio, {n_lib} from the library."
         if search:
             text += f"  {total} match '{search}'."
         if total > shown:
