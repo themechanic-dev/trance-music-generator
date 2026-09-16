@@ -382,8 +382,9 @@ class CapturePage(Gtk.Box):
             self.open_editor(pid)
 
     def _on_job_event(self, job_id, kind, params, event) -> None:
-        if kind == "library_analyze" and event.get("event") in ("track_done", "finished") and (event.get("phrases") or event.get("event") == "finished"):
-            self.reload()   # vocal phrases from the library land in the bank
+        if kind in ("library_analyze", "library_phrases") and event.get("event") in ("track_done", "finished") \
+                and (event.get("phrases") or event.get("event") == "finished"):
+            self.reload()   # phrases from the library land in the bank as each track is done
             return
         if kind != "phrase_postprocess" or event.get("event") != "finished":
             return
