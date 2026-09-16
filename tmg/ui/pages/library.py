@@ -254,7 +254,7 @@ class LibraryPage(Gtk.Box):
         self.reload()
 
     def _reextract_phrases(self, *_) -> None:
-        if self._analyze_job is not None or self.app.jobs.busy():
+        if self._analyze_job is not None or self.app.jobs.busy:
             self.app.toast("A job is running - wait for it to finish (or pause the analysis) first")
             return
         counts = self.db.track_counts()

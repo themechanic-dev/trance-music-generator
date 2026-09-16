@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
 
 import gi
 
@@ -55,6 +56,17 @@ class TmgApplication(Adw.Application):
             self.logger.warning("%d job(s) left over from a previous run were marked as failed", leftover)
         self.jobs = JobQueue(self.db, on_event=self._on_job_event_from_thread)
         self.jobs.start()
+
+        # an error inside a button handler would otherwise only reach stderr: log it and say it on screen
+        def unhandled(exc_type, exc, tb):
+            text = "".join(traceback.format_exception(exc_type, exc, tb))
+            self.logger.error("unhandled error in the GUI:\n%s", text)
+            try:
+                self.toast(f"Error: {exc_type.__name__}: {exc} - details in data/logs/tmg.log", 8)
+            except Exception:  # noqa: BLE001
+                pass
+
+        sys.excepthook = unhandled
 
         # the app icon: found by name once install.sh --desktop has copied it to ~/.local/share/icons, and
         # straight from the project folder before that (GTK treats files in a search path as unthemed icons)
