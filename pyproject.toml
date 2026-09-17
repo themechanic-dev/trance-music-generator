@@ -1,6 +1,6 @@
 [project]
 name = "trance-music-generator"
-version = "1.0.0"
+version = "1.1.0"
 description = "Learns trance from your library, composes new tracks, grabs phrases from the system audio, renders MP3/MP4 with GPU visuals."
 requires-python = ">=3.12"
 

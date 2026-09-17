@@ -58,7 +58,7 @@ cd trance-music-generator
 Models download into `models/` the first time each feature is used. The full guide - requirements, what the
 installer does, Stable Audio Open, where things live, updating, uninstalling, troubleshooting - is
 [docs/INSTALL.md](docs/INSTALL.md). The in-app **Help** tab explains every screen; the numbers behind the
-design are in [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md).
+design are in [docs/MEASUREMENTS.md](docs/MEASUREMENTS.md); what changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 ## How it is built
 
