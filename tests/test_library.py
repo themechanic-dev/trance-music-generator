@@ -255,3 +255,16 @@ def test_db_library(tmp_path):
     db.delete_track(t2)
     assert db.get_track(t2) is None
     db.close()
+
+
+def test_reextract_skips_only_tracks_done_with_the_same_settings():
+    from tmg.jobs.kinds import library_phrases as lp
+
+    rule = lp.rule_of({"threshold_db": -40.0, "min_len": 1.2, "max_len": 8.0, "max_count": 3, "min_score": 0.5})
+    assert rule == lp.DEFAULT_RULE
+    assert lp.needs_redo({"version": 1}, rule)                                    # old loudness picks
+    assert not lp.needs_redo({"version": 2}, rule)                                # re-extracted before the rule was stored
+    assert not lp.needs_redo({"version": 2, "phrase_rule": dict(rule)}, rule)
+    stricter = dict(rule, min_score=0.65)
+    assert lp.needs_redo({"version": 2}, stricter)                                # the user raised the score: redo
+    assert lp.needs_redo({"version": 2, "phrase_rule": dict(rule)}, stricter)

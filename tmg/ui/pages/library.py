@@ -268,7 +268,8 @@ class LibraryPage(Gtk.Box):
             body=f"Runs Demucs again over the {n} analysed tracks (about 15 s each, roughly {n * 15 / 60:.0f} min on this GPU) and "
                  "picks the phrases with the speech rule: gaps between syllables, consonants and vowels, energy in the voice "
                  "band, no beat-locked pulsing. The current library phrases are replaced; their files go to data/trash. "
-                 "Tracks analysed with the current rule already are skipped.",
+                 "Tracks whose phrases already come from the current settings (minimum speech score, threshold, count) are "
+                 "skipped, so after a change only the work that changed is done.",
         )
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("go", "Re-extract")

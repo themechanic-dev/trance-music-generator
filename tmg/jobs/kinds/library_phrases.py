@@ -2,7 +2,7 @@
 
 For every analysed track: decode, Demucs, vocal_segments with the track's tempo, then replace the track's
 library phrases in the bank - the old files go to data/trash, nothing is lost silently - and store the new
-segments in the track's analysis. Resumable: a track whose analysis already carries the current version is
+segments in the track's analysis. Resumable: a track whose phrases already come from these settings is
 skipped, so a crash or a Pause picks up where it stopped. Force=True redoes every track.
 """
 
@@ -16,6 +16,23 @@ from tmg.capture import phrases as phrase_files
 from tmg.jobs import protocol
 from tmg.jobs.kinds.library_analyze import _save_vocal_phrases
 from tmg.library import analysis
+
+DEFAULT_RULE = {"version": analysis.ANALYSIS_VERSION, "threshold_db": -40.0, "min_len": 1.2, "max_len": 8.0, "max_count": 3,
+                "min_score": analysis.SPEECH_MIN_SCORE}
+
+
+def rule_of(vocal_opts: dict) -> dict:
+    """The settings that decide which phrases a track gets; stored with the track so a change reruns it."""
+    return {"version": analysis.ANALYSIS_VERSION, **{k: vocal_opts[k] for k in ("threshold_db", "min_len", "max_len", "max_count", "min_score")}}
+
+
+def needs_redo(track_analysis: dict, rule: dict) -> bool:
+    """A track is done when its phrases came from exactly these settings. Tracks re-extracted before the rule was
+    recorded (analysis version 2 without a 'phrase_rule') count as done with the default settings."""
+    stored = track_analysis.get("phrase_rule")
+    if stored is None and int(track_analysis.get("version", 1)) >= analysis.ANALYSIS_VERSION:
+        stored = DEFAULT_RULE
+    return stored != rule
 
 
 def _analysis_of(track: dict) -> dict:
@@ -38,6 +55,7 @@ def run(params: dict) -> dict:
     }
     force = bool(params.get("force", False))
     only = {int(i) for i in (params.get("track_ids") or [])}
+    rule = rule_of(vocal_opts)
 
     db = dbmod.Database()
     tracks = db.tracks_done()
@@ -45,12 +63,13 @@ def run(params: dict) -> dict:
     for t in tracks:
         if only and t["id"] not in only:
             continue
-        if not force and _analysis_of(t).get("version", 1) >= analysis.ANALYSIS_VERSION:
+        if not force and not needs_redo(_analysis_of(t), rule):
             continue
         todo.append(t)
     if not todo:
         db.close()
-        protocol.log("every analysed track already has phrases from the current rule - nothing to do")
+        protocol.log("every analysed track already has phrases from these settings - change the minimum speech score, the "
+                     "threshold or the count in Settings > Library analysis to pick them again")
         return {"tracks": 0, "phrases": 0, "removed": 0, "minutes": 0.0}
 
     protocol.progress(0.0, "loading Demucs")
@@ -83,6 +102,7 @@ def run(params: dict) -> dict:
             saved_total += saved
             a["vocal_segments"] = segs
             a["version"] = analysis.ANALYSIS_VERSION
+            a["phrase_rule"] = rule
             db.update_track(t["id"], analysis=a)
             protocol.emit("track_done", track_id=t["id"], phrases=saved)
             if saved:
